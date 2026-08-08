@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-light: #FAFAF8;
+  --color-bg-dark: #1A1A1A;
+  --color-sidebar-dark: #1A1A1A;
+  --color-text-dark: #1A1A1A;
+  --color-text-muted-light: #6B6B6B;
+  --color-text-muted-dark: #A3A3A3;
+  --color-text-ivory: #FAFAF8;
+  
+  /* Signal Red Palette (#E8402B) */
+  --color-signal-red: #E8402B;
+  --color-signal-red-hover: #D03420;
+  --color-signal-red-light: #FEE2E2;
+  --color-signal-red-muted: #F2A399;
+  --color-signal-red-dark: #991B1B;
+  
+  --color-border-warm: #E5E5E5;
+  --color-border-hairline: rgba(229, 229, 229, 0.8);
+  --color-border-dark-hairline: rgba(255, 255, 255, 0.1);
+  
+  --shadow-premium: 0 1px 2px 0 rgba(0, 0, 0, 0.02), 0 4px 16px 0 rgba(0, 0, 0, 0.03), 0 8px 30px 0 rgba(0, 0, 0, 0.02);
+  --shadow-premium-hover: 0 2px 4px 0 rgba(0, 0, 0, 0.02), 0 8px 24px 0 rgba(232, 64, 43, 0.06), 0 20px 48px -4px rgba(0, 0, 0, 0.03);
+
+  --font-serif: "Sora", sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: #FAFAF8;
+    color: #1A1A1A;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    letter-spacing: -0.015em;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(26, 26, 26, 0.15);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(26, 26, 26, 0.3);
+  }
+}
+
+.shadow-premium {
+  box-shadow: var(--shadow-premium);
+}
+
+.shadow-premium-hover {
+  transition: box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.shadow-premium-hover:hover {
+  box-shadow: var(--shadow-premium-hover);
+  transform: translateY(-1px);
+}
+
+.border-hairline {
+  border: 1px solid var(--color-border-hairline);
+}
+
+.border-dark-hairline {
+  border: 1px solid var(--color-border-dark-hairline);
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+.tracking-tight-title {
+  letter-spacing: -0.035em;
+}
+.tracking-tight-ui {
+  letter-spacing: -0.02em;
+}
+
+/* Monochrome Platform Indicator Badges */
+.bg-amazon { background-color: #262626; color: #FAFAF8; }
+.bg-trustpilot { background-color: #262626; color: #FAFAF8; }
+.bg-googlemaps { background-color: #262626; color: #FAFAF8; }
+.bg-shopify { background-color: #262626; color: #FAFAF8; }
+.bg-yelp { background-color: #262626; color: #FAFAF8; }
+.bg-g2 { background-color: #262626; color: #FAFAF8; }
+
+/* Custom SVG connections flow animation with Signal Red indicator */
+@keyframes flow-dash-offset {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.animate-flow-dash {
+  stroke-dasharray: 6, 4;
+  animation: flow-dash-offset 1s linear infinite;
+}
+
+/* Floating animation for dashboard raw items */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float-slow {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-delay {
+  animation: float 4s ease-in-out infinite;
+  animation-delay: 2s;
+}
