@@ -9,7 +9,8 @@ import {
   Send,
   Bot,
   User,
-  Share2
+  Share2,
+  Plus
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import type { Product } from '../mock-data';
@@ -89,6 +90,7 @@ export default function Dashboard({
   const [liveResults, setLiveResults] = useState<Message['liveResults'] | null>(null);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState(() => `signal-${selectedProductId}-${crypto.randomUUID()}`);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeProduct = products.find(p => p.id === selectedProductId) || products[0];
@@ -100,6 +102,7 @@ export default function Dashboard({
 
   // Sync chatbot context when product is selected in the Sidebar
   useEffect(() => {
+    setChatSessionId(`signal-${selectedProductId}-${crypto.randomUUID()}`);
     setLiveResults(null);
     setAnalysisReport(null);
     setMessages([
@@ -111,6 +114,21 @@ export default function Dashboard({
       }
     ]);
   }, [selectedProductId, activeProduct.name]);
+
+  const handleNewChat = () => {
+    setChatSessionId(`signal-${selectedProductId}-${crypto.randomUUID()}`);
+    setLiveResults(null);
+    setAnalysisReport(null);
+    setExpandedIssueId(null);
+    setMessages([
+      {
+        id: `welcome-${selectedProductId}-${Date.now()}`,
+        sender: 'assistant',
+        text: `Welcome! I am your AI workspace companion for **${activeProduct.name}**.\n\nYou can ask me to summarize customer sentiment, list the top product issues, map positive sentiment trends over time, compare metrics with another product, or break down reviews by connected store channels.`,
+        timestamp: new Date()
+      }
+    ]);
+  };
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -129,6 +147,13 @@ export default function Dashboard({
     triggerToast(`Created Jira ticket ${ticketId} for "${issueKeyword}" (Ref: ${issueId})`);
   };
 
+  const renderMessageText = (text: string) => text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    return <span key={index}>{part}</span>;
+  });
+
   const handleAnalyzeProduct = async (product: LiveProduct) => {
     setIsAnalyzing(true);
     try {
@@ -136,7 +161,7 @@ export default function Dashboard({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: `signal-${selectedProductId}`,
+          session_id: chatSessionId,
           product_id_or_title: product.id,
         }),
       });
@@ -173,7 +198,7 @@ export default function Dashboard({
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        session_id: `signal-${selectedProductId}`,
+          session_id: chatSessionId,
         message: textToSend,
         platforms: activeProduct.platforms
           .map(p => p.platform.toLowerCase() === 'google maps' ? 'google' : p.platform.toLowerCase())
@@ -278,6 +303,15 @@ export default function Dashboard({
             <FileText className="w-3.5 h-3.5 text-[#6B6B6B]" />
             <span>Export Chat</span>
           </button>
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="bg-[#E8402B] text-white hover:bg-[#D03420] px-3.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+            title={`Start a new chat for ${activeProduct.name}`}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Chat</span>
+          </button>
         </div>
       </header>
 
@@ -309,7 +343,7 @@ export default function Dashboard({
                       : 'bg-[#E8402B] border-[#E8402B] text-white font-medium text-left'
                   }`}>
                     
-                    <p className="whitespace-pre-line">{msg.text}</p>
+                    <p className="whitespace-pre-line">{renderMessageText(msg.text)}</p>
 
                     {isBot && msg.liveResults && (
                       <div className="mt-4 space-y-3 border-t border-[#E5E5E5]/60 pt-4">
