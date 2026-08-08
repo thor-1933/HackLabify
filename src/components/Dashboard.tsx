@@ -200,9 +200,7 @@ export default function Dashboard({
       body: JSON.stringify({
           session_id: chatSessionId,
         message: textToSend,
-        platforms: activeProduct.platforms
-          .map(p => p.platform.toLowerCase() === 'google maps' ? 'google' : p.platform.toLowerCase())
-          .filter(platform => ['amazon', 'google', 'trustpilot'].includes(platform)),
+        platforms: ['amazon', 'google', 'trustpilot'],
       }),
       });
 
