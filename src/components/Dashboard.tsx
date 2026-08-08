@@ -59,6 +59,20 @@ interface LiveReview {
   sentiment_label: string;
 }
 
+interface AnalysisReport {
+  product_title: string;
+  image_url?: string | null;
+  overall_verdict: string;
+  average_rating: number;
+  total_reviews_analyzed: number;
+  sentiment_breakdown: Record<string, number>;
+  pros: string[];
+  cons: string[];
+  platform_breakdown: Record<string, number>;
+  detailed_summary: string;
+  reviews_included: LiveReview[];
+}
+
 export default function Dashboard({ 
   products, 
   selectedProductId, 
@@ -72,6 +86,9 @@ export default function Dashboard({
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
+  const [liveResults, setLiveResults] = useState<Message['liveResults'] | null>(null);
+  const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const activeProduct = products.find(p => p.id === selectedProductId) || products[0];
@@ -83,6 +100,8 @@ export default function Dashboard({
 
   // Sync chatbot context when product is selected in the Sidebar
   useEffect(() => {
+    setLiveResults(null);
+    setAnalysisReport(null);
     setMessages([
       {
         id: 'welcome-' + selectedProductId,
@@ -108,6 +127,29 @@ export default function Dashboard({
   const handleCreateTicket = (issueKeyword: string, issueId: string) => {
     const ticketId = `SIG-${Math.floor(100 + Math.random() * 900)}`;
     triggerToast(`Created Jira ticket ${ticketId} for "${issueKeyword}" (Ref: ${issueId})`);
+  };
+
+  const handleAnalyzeProduct = async (product: LiveProduct) => {
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: `signal-${selectedProductId}`,
+          product_id_or_title: product.id,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || `Analysis request failed: ${response.status}`);
+      }
+      setAnalysisReport(data as AnalysisReport);
+    } catch (error) {
+      triggerToast(error instanceof Error ? error.message : 'Could not analyze this product.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSendMessage = async (textToSend: string) => {
@@ -140,23 +182,27 @@ export default function Dashboard({
       });
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `API request failed: ${response.status}`);
     }
 
     const data = await response.json();
 
       const liveProducts = Array.isArray(data.products) ? data.products : [];
       const liveReviews = Array.isArray(data.reviews) ? data.reviews : [];
+      const currentLiveResults = {
+        products: liveProducts,
+        reviews: liveReviews,
+        totalReviews: Number(data.total_reviews) || liveReviews.length,
+      };
+      setLiveResults(currentLiveResults);
+      setAnalysisReport(null);
       const botMsg: Message = {
         id: Math.random().toString(),
         sender: 'assistant',
         text: data.chatbot_message || data.message || 'I could not generate a response.',
         timestamp: new Date(),
-        liveResults: {
-          products: liveProducts,
-          reviews: liveReviews,
-          totalReviews: Number(data.total_reviews) || liveReviews.length,
-        },
+        liveResults: currentLiveResults,
       };
 
     setMessages(prev => [...prev, botMsg]);
@@ -164,10 +210,11 @@ export default function Dashboard({
     } catch (error) {
       console.error('Chat API error:', error);
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown backend error.';
     const errorMsg: Message = {
       id: Math.random().toString(),
       sender: 'assistant',
-      text: 'Sorry, I could not connect to the Signal AI backend. Please make sure the backend is running on port 8000.',
+      text: `Live search failed: ${errorMessage}`,
       timestamp: new Date(),
     };
 
@@ -541,6 +588,71 @@ export default function Dashboard({
               </div>
             );
           })}
+
+          {liveResults && liveResults.products.length > 0 && (
+            <section className="rounded-2xl border border-[#E5E5E5] bg-white p-4 text-left shadow-3xs">
+              <div className="flex items-center justify-between gap-3 border-b border-[#E5E5E5] pb-3">
+                <div>
+                  <h2 className="text-sm font-bold text-[#1A1A1A]">Live product analysis</h2>
+                  <p className="mt-1 text-[10px] text-[#6B6B6B]">{liveResults.products.length} products · {liveResults.totalReviews} reviews collected</p>
+                </div>
+                <span className="rounded-full bg-[#E8402B]/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-[#E8402B]">Live API</span>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {liveResults.products.map(product => (
+                  <div key={product.id} className="rounded-xl border border-[#E5E5E5] bg-[#FAFAF8] p-3">
+                    <div className="flex gap-3">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt="" className="h-20 w-20 shrink-0 rounded-lg bg-white object-contain" />
+                      ) : (
+                        <div className="h-20 w-20 shrink-0 rounded-lg bg-[#E5E5E5]" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-3 text-xs font-bold text-[#1A1A1A]">{product.title}</h3>
+                        <p className="mt-1 text-[10px] text-[#6B6B6B]">{product.price || 'Price unavailable'} · {product.rating || 'N/A'}★ · {product.platform}</p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAnalyzeProduct(product)}
+                            disabled={isAnalyzing}
+                            className="rounded-lg bg-[#E8402B] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+                          </button>
+                          <a href={product.product_url} target="_blank" rel="noreferrer" className="rounded-lg border border-[#E5E5E5] bg-white px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[#6B6B6B] hover:text-[#E8402B]">Open listing</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {analysisReport && (
+            <section className="rounded-2xl border border-[#E8402B]/25 bg-white p-4 text-left shadow-3xs">
+              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E5E5] pb-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-[#E8402B]">Product analysis report</p>
+                  <h2 className="mt-1 text-base font-bold text-[#1A1A1A]">{analysisReport.product_title}</h2>
+                </div>
+                <span className="rounded-lg bg-[#E8402B] px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white">{analysisReport.overall_verdict}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-lg bg-[#FAFAF8] p-3"><span className="block text-[9px] text-[#6B6B6B]">Average rating</span><strong className="text-lg text-[#E8402B]">{analysisReport.average_rating}/5</strong></div>
+                <div className="rounded-lg bg-[#FAFAF8] p-3"><span className="block text-[9px] text-[#6B6B6B]">Reviews analyzed</span><strong className="text-lg">{analysisReport.total_reviews_analyzed}</strong></div>
+                <div className="rounded-lg bg-[#FAFAF8] p-3"><span className="block text-[9px] text-[#6B6B6B]">Positive</span><strong className="text-lg text-green-600">{analysisReport.sentiment_breakdown.Positive || 0}</strong></div>
+                <div className="rounded-lg bg-[#FAFAF8] p-3"><span className="block text-[9px] text-[#6B6B6B]">Negative</span><strong className="text-lg text-red-600">{analysisReport.sentiment_breakdown.Negative || 0}</strong></div>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-[#525252]">{analysisReport.detailed_summary}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div><h3 className="text-[9px] font-bold uppercase tracking-wider text-green-700">Pros</h3>{analysisReport.pros.length ? analysisReport.pros.map((item, index) => <p key={index} className="mt-1 text-[11px] text-[#525252]">+ {item}</p>) : <p className="mt-1 text-[11px] text-[#6B6B6B]">No positive review themes found.</p>}</div>
+                <div><h3 className="text-[9px] font-bold uppercase tracking-wider text-red-700">Cons</h3>{analysisReport.cons.length ? analysisReport.cons.map((item, index) => <p key={index} className="mt-1 text-[11px] text-[#525252]">- {item}</p>) : <p className="mt-1 text-[11px] text-[#6B6B6B]">No negative review themes found.</p>}</div>
+              </div>
+              <div className="mt-3 border-t border-[#E5E5E5] pt-3"><h3 className="text-[9px] font-bold uppercase tracking-wider text-[#6B6B6B]">Reviews by platform</h3><div className="mt-2 flex flex-wrap gap-2">{Object.entries(analysisReport.platform_breakdown).map(([platform, count]) => <span key={platform} className="rounded-full bg-[#FAFAF8] px-2.5 py-1 text-[10px] text-[#525252]">{platform}: {count}</span>)}</div></div>
+              {analysisReport.reviews_included.length > 0 && <div className="mt-3 space-y-2 border-t border-[#E5E5E5] pt-3">{analysisReport.reviews_included.slice(0, 5).map(review => <div key={review.id} className="rounded-lg bg-[#FAFAF8] p-2.5"><div className="flex justify-between text-[10px] text-[#6B6B6B]"><strong className="text-[#1A1A1A]">{review.author}</strong><span>{review.platform} · {review.rating}★ · {review.sentiment_label}</span></div><p className="mt-1 text-[11px] text-[#525252]">{review.text}</p></div>)}</div>}
+            </section>
+          )}
 
           {/* Typing Indicator */}
           {isTyping && (

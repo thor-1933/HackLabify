@@ -401,6 +401,12 @@ def root():
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def continue_chat(req: ChatRequest):
+    if not APIFY_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="APIFY_TOKEN is not configured. Set it in the backend environment before searching live data."
+        )
+
     session_id = req.session_id
     user_msg = req.message.strip()
 

@@ -1,5 +1,25 @@
 # React + TypeScript + Vite
 
+Signal is a React dashboard backed by FastAPI for live product search, review collection, sentiment classification, and product analysis.
+
+## Run locally
+
+Install frontend dependencies and start Vite:
+
+```bash
+npm install
+npm run dev
+```
+
+Configure the live scraper token before starting the API. Copy `.env.example` to `.env` and set `APIFY_TOKEN`, or set it directly in your shell:
+
+```powershell
+$env:APIFY_TOKEN = "your_apify_token"
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+The dashboard calls `/api/chat` for live products and reviews, then `/api/analyze` for the detailed verdict, sentiment breakdown, pros, cons, platform counts, and included reviews.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:
